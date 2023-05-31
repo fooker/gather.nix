@@ -34,18 +34,23 @@ This is useful in conjunction with a deployment tool like colmena or morph.
 ### Using the module:
 
 ```
-{ pkgs, ... }: {
-  gather."sshHostKey-ed25519" = {
+{ pkgs, config, ... }: {
+  gather.target = part: "gathered/yourhostname/${part}";
+  gather.root = ./.;
+
+  gather.parts."ssh/hostKey/ed25519" = {
     name = "ssh_host_ed25519_key.pub";
     file = "/etc/ssh/ssh_host_ed25519_key.pub";
   };
 
-  gather."wireguardPublicKey" = {
-    name "wg.pub"
-    command = pkgs.writeScript "gather-wg-pubkey" ''
+  gather.parts."wireguard/publicKey" = {
+    name = "wg.pub"
+    command = ''
       ${pkgs.wireguard-tools}/bin/wg pubkey < /run/secrets/wg.key
     '';
   }
+
+  example.option.file = config.gather.parts."ssh/hostKey/ed25519".path;
 }
 ```
 
