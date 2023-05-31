@@ -4,7 +4,7 @@ with lib;
 
 let
   gatherList = pkgs.writeText "gather-list" (concatMapStringsSep "\n"
-    (part: part.name)
+    (part: part.target)
     (attrValues config.gather.parts));
 
   gatherScript = pkgs.writeShellScript "gather" ''
@@ -19,12 +19,12 @@ let
 
     ${concatMapStringsSep "\n"
       (part: ''
-        mkdir -p "$(dirname "${part.name}")"
+        mkdir -p "$(dirname "${part.target}")"
         ${optionalString (part.file != null) ''
-          cp -f "${part.file}" "${part.name}"
+          cp -f "${part.file}" "$SCRATCH/${part.target}"
         ''}
         ${optionalString (part.command != null) ''
-          "${part.command}" > "${part.name}"
+          "${pkgs.writeShellScript "gather-${part.name}" part.command}" > "$SCRATCH/${part.target}"
         ''}
       '')
       (attrValues config.gather.parts)}
@@ -40,10 +40,17 @@ in
     target = mkOption {
       description = ''
         Function to determine target path of a gethered entry.
+        The path is relative to project root and must not start with a slash.
         Must be `string -> string`
       '';
-      type = types.functionTo types.string;
-      default = name: "./gathered/${name}";
+      type = types.functionTo (types.addCheck types.nonEmptyStr (x: substring 0 1 x != "/"));
+    };
+
+    root = mkOption {
+      description = ''
+        Path to root of project.
+      '';
+      type = types.path;
     };
 
     parts = mkOption {
@@ -86,6 +93,15 @@ in
             type = types.str;
             readOnly = true;
             default = cfg.target config.name;
+          };
+
+          path = mkOption {
+            description = ''
+              Path of the gathered data.
+            '';
+            type = types.path;
+            readOnly = true;
+            default = /${cfg.root}/${config.target};
           };
         };
       }));
